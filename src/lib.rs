@@ -391,6 +391,12 @@ impl Player {
                                 }
                             }
                         }
+
+                        // if desync passes n threshold, try to sync again by skipping frames
+                        let max_desync = streamer.primary_elapsed_ms().get() - 10;
+                        while streamer.elapsed_ms().get() < max_desync {
+                            let _ = streamer.receive_next_packet(Some(max_desync));
+                        }
                     }
                 }
             }
@@ -413,7 +419,8 @@ impl Player {
             let audio_decoder_ref = Arc::downgrade(audio_decoder);
             let audio_timer_guard = self
                 .audio_timer
-                .schedule_repeating(Duration::zero(), move || play(&audio_decoder_ref));
+                // sleep to free resources for other tasks, otherwise, due to sync logic, audio will take all cpu time, and video won't stream
+                .schedule_repeating(Duration::milliseconds(1), move || play(&audio_decoder_ref));
             self.audio_thread = Some(audio_timer_guard);
         }
 
@@ -1328,23 +1335,30 @@ pub trait Streamer: Send {
     /// Ignore the remainder of this packet.
     fn drop_frames(&mut self) -> Result<()> {
         if self.decode_frame().is_err() {
-            self.receive_next_packet()
+            self.receive_next_packet(None)
         } else {
             self.drop_frames()
         }
     }
     /// Receive the next packet of the stream.
-    fn receive_next_packet(&mut self) -> Result<()> {
+    fn receive_next_packet(&mut self, skip_until: Option<i64>) -> Result<()> {
         if let Some(packet) = self.input_context().packets().next() {
             let (stream, packet) = packet?;
             let time_base = stream.time_base();
             if stream.index() == *self.stream_index() {
-                self.decoder().send_packet(&packet)?;
                 match packet.dts() {
                     // Don't try to set elapsed time off of undefined timestamp values
                     Some(ffmpeg::ffi::AV_NOPTS_VALUE) => (),
                     Some(dts) => {
                         self.elapsed_ms().set(timestamp_to_millisec(dts, time_base));
+
+                        if let Some(skip_until) = skip_until {
+                            if skip_until > self.elapsed_ms().get() {
+                                return Ok(());
+                            }
+                        }
+
+                        self.decoder().send_packet(&packet)?;
                     }
                     _ => (),
                 }
@@ -1368,7 +1382,7 @@ pub trait Streamer: Send {
             Err(e) => {
                 // dbg!(&e, is_ffmpeg_incomplete_error(&e));
                 if is_ffmpeg_incomplete_error(&e) {
-                    self.receive_next_packet()?;
+                    self.receive_next_packet(None)?;
                     self.receive_next_packet_until_frame()
                 } else {
                     Err(e)
@@ -1567,7 +1581,7 @@ impl Streamer for SubtitleStreamer {
     fn player_state(&self) -> &Shared<PlayerState> {
         &self.player_state
     }
-    fn receive_next_packet(&mut self) -> Result<()> {
+    fn receive_next_packet(&mut self, _: Option<i64>) -> Result<()> {
         if let Some(packet) = self.input_context().packets().next() {
             let (stream, packet) = packet?;
             let time_base = stream.time_base();
