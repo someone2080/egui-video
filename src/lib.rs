@@ -383,7 +383,7 @@ impl Player {
                     if (streamer.player_state().get() == PlayerState::Playing)
                         && streamer.primary_elapsed_ms().get() >= streamer.elapsed_ms().get()
                     {
-                        match streamer.recieve_next_packet_until_frame() {
+                        match streamer.receive_next_packet_until_frame() {
                             Ok(frame) => streamer.apply_frame(frame),
                             Err(e) => {
                                 if is_ffmpeg_eof_error(&e) && streamer.is_primary_streamer() {
@@ -1154,7 +1154,7 @@ impl Player {
     }
 
     fn try_set_texture_handle(&mut self) -> Result<TextureHandle> {
-        match self.video_streamer.lock().recieve_next_packet_until_frame() {
+        match self.video_streamer.lock().receive_next_packet_until_frame() {
             Ok(first_frame) => {
                 let texture_handle = self.ctx_ref.load_texture(
                     "vidstream",
@@ -1293,7 +1293,7 @@ pub trait Streamer: Send {
 
                 // frame preview
                 if self.is_primary_streamer() {
-                    if let Ok(frame) = self.recieve_next_packet_until_frame() {
+                    if let Ok(frame) = self.receive_next_packet_until_frame() {
                         self.apply_frame(frame)
                     }
                 }
@@ -1328,20 +1328,20 @@ pub trait Streamer: Send {
     /// Ignore the remainder of this packet.
     fn drop_frames(&mut self) -> Result<()> {
         if self.decode_frame().is_err() {
-            self.recieve_next_packet()
+            self.receive_next_packet()
         } else {
             self.drop_frames()
         }
     }
-    /// Recieve the next packet of the stream.
-    fn recieve_next_packet(&mut self) -> Result<()> {
+    /// Receive the next packet of the stream.
+    fn receive_next_packet(&mut self) -> Result<()> {
         if let Some(packet) = self.input_context().packets().next() {
             let (stream, packet) = packet?;
             let time_base = stream.time_base();
             if stream.index() == *self.stream_index() {
                 self.decoder().send_packet(&packet)?;
                 match packet.dts() {
-                    // Don't try to set elasped time off of undefined timestamp values
+                    // Don't try to set elapsed time off of undefined timestamp values
                     Some(ffmpeg::ffi::AV_NOPTS_VALUE) => (),
                     Some(dts) => {
                         self.elapsed_ms().set(timestamp_to_millisec(dts, time_base));
@@ -1362,14 +1362,14 @@ pub trait Streamer: Send {
         self.decoder().flush();
     }
     /// Keep recieving packets until a frame can be decoded.
-    fn recieve_next_packet_until_frame(&mut self) -> Result<Self::ProcessedFrame> {
-        match self.recieve_next_frame() {
+    fn receive_next_packet_until_frame(&mut self) -> Result<Self::ProcessedFrame> {
+        match self.receive_next_frame() {
             Ok(frame_result) => Ok(frame_result),
             Err(e) => {
                 // dbg!(&e, is_ffmpeg_incomplete_error(&e));
                 if is_ffmpeg_incomplete_error(&e) {
-                    self.recieve_next_packet()?;
-                    self.recieve_next_packet_until_frame()
+                    self.receive_next_packet()?;
+                    self.receive_next_packet_until_frame()
                 } else {
                     Err(e)
                 }
@@ -1381,7 +1381,7 @@ pub trait Streamer: Send {
     /// Apply a processed frame
     fn apply_frame(&mut self, _frame: Self::ProcessedFrame) {}
     /// Decode and process a frame.
-    fn recieve_next_frame(&mut self) -> Result<Self::ProcessedFrame> {
+    fn receive_next_frame(&mut self) -> Result<Self::ProcessedFrame> {
         match self.decode_frame() {
             Ok(decoded_frame) => self.process_frame(decoded_frame),
             Err(e) => Err(e),
@@ -1567,7 +1567,7 @@ impl Streamer for SubtitleStreamer {
     fn player_state(&self) -> &Shared<PlayerState> {
         &self.player_state
     }
-    fn recieve_next_packet(&mut self) -> Result<()> {
+    fn receive_next_packet(&mut self) -> Result<()> {
         if let Some(packet) = self.input_context().packets().next() {
             let (stream, packet) = packet?;
             let time_base = stream.time_base();
