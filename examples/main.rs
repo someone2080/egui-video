@@ -20,7 +20,7 @@ struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
-            audio_device: AudioDevice::new().unwrap(),
+            audio_device: AudioDevice::new(),
             media_path: String::new(),
             stream_size_scale: 1.,
             seek_frac: 0.,
