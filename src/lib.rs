@@ -1320,7 +1320,7 @@ pub trait Streamer: Send {
             let target_ts = millisec_to_timestamp(target_ms, rescale::TIME_BASE);
 
             // TODO: propagate error
-            if self.input_context().seek(target_ts, ..target_ts).is_ok() {
+            if self.input_context().seek(target_ts, ..=target_ts).is_ok() {
                 self.decoder().flush();
                 let mut previous_elapsed_ms = self.elapsed_ms().get();
 
