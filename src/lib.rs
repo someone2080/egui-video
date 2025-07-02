@@ -1164,8 +1164,7 @@ impl Player {
             player_state: player_state.clone(),
         };
         let options = PlayerOptions::default();
-        let texture_handle =
-            ctx.load_texture("vidstream", ColorImage::example(), options.texture_options);
+        let texture_handle = ctx.load_texture("vidstream", ColorImage::example(), options.texture_options);
         let (message_sender, message_reciever) = std::sync::mpsc::channel();
         let mut streamer = Self {
             input_path: input_path.clone(),
@@ -1203,7 +1202,7 @@ impl Player {
         };
 
         loop {
-            if let Ok(_texture_handle) = streamer.try_set_texture_handle() {
+            if let Ok(_) = streamer.try_set_texture_handle() {
                 break;
             }
         }
@@ -1211,17 +1210,11 @@ impl Player {
         Ok(streamer)
     }
 
-    fn try_set_texture_handle(&mut self) -> Result<TextureHandle> {
+    fn try_set_texture_handle(&mut self) -> Result<bool> {
         match self.video_streamer.lock().receive_next_packet_until_frame() {
             Ok(first_frame) => {
-                let texture_handle = self.ctx_ref.load_texture(
-                    "vidstream",
-                    first_frame,
-                    self.options.texture_options,
-                );
-                let texture_handle_clone = texture_handle.clone();
-                self.texture_handle = texture_handle;
-                Ok(texture_handle_clone)
+                self.texture_handle.set(first_frame, self.options.texture_options);
+                Ok(true)
             }
             Err(e) => Err(e),
         }
