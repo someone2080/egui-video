@@ -1319,7 +1319,7 @@ pub trait Streamer: Send {
             let seeking_backwards = target_ms < self.elapsed_ms().get();
             let target_ts = millisec_to_timestamp(target_ms, rescale::TIME_BASE);
 
-            // TODO: propogate error
+            // TODO: propagate error
             if self.input_context().seek(target_ts, ..target_ts).is_ok() {
                 self.decoder().flush();
                 let mut previous_elapsed_ms = self.elapsed_ms().get();
@@ -1421,12 +1421,10 @@ pub trait Streamer: Send {
     }
     /// Reset the stream to its initial state.
     fn reset(&mut self) {
-        let beginning: i64 = 0;
-        let beginning_seek = beginning.rescale((1, 1), rescale::TIME_BASE);
-        let _ = self.input_context().seek(beginning_seek, ..beginning_seek);
+        let _ = self.input_context().seek(0, ..);
         self.decoder().flush();
     }
-    /// Keep recieving packets until a frame can be decoded.
+    /// Keep receiving packets until a frame can be decoded.
     fn receive_next_packet_until_frame(&mut self) -> Result<Self::ProcessedFrame> {
         match self.receive_next_frame() {
             Ok(frame_result) => Ok(frame_result),
@@ -1687,13 +1685,13 @@ impl AsFfmpegSample for cpal::SampleFormat {
             cpal::SampleFormat::I8 => panic!("unsupported audio format"),
             cpal::SampleFormat::U16 => panic!("unsupported audio format"),
             cpal::SampleFormat::I16 => FfmpegAudioFormat::I16(FfmpegAudioFormatType::Packed),
-            cpal::SampleFormat::U32 => panic!("unsuppported audio format"),
+            cpal::SampleFormat::U32 => panic!("unsupported audio format"),
             cpal::SampleFormat::I32 => FfmpegAudioFormat::I32(FfmpegAudioFormatType::Packed),
-            cpal::SampleFormat::U64 => panic!("unsuppported audio format"),
+            cpal::SampleFormat::U64 => panic!("unsupported audio format"),
             cpal::SampleFormat::I64 => FfmpegAudioFormat::I64(FfmpegAudioFormatType::Packed),
             cpal::SampleFormat::F32 => FfmpegAudioFormat::F32(FfmpegAudioFormatType::Packed),
             cpal::SampleFormat::F64 => FfmpegAudioFormat::F64(FfmpegAudioFormatType::Packed),
-            _ => panic!("unsuppported audio format"),
+            _ => panic!("unsupported audio format"),
         }
     }
 }
