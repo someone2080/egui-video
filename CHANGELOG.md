@@ -1,3 +1,8 @@
+# 0.10.0
+
+- New `GuiPlayer` can be used to embed video into `egui`
+- BREAKING: `Player` now acts as a headless video player
+
 # 0.9.0
  - newType `StreamIndex`
  - removed `Player::stop_direct` (just use `Player::stop` now)
