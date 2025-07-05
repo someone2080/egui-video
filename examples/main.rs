@@ -1,6 +1,7 @@
 use eframe::NativeOptions;
 use egui::{CentralPanel, DragValue, Grid, Sense, Slider, TextEdit, Window};
-use egui_video::{AudioDevice, Player};
+use egui_video::{AudioDevice, GuiPlayer};
+
 fn main() {
     let _ = eframe::run_native(
         "app",
@@ -10,7 +11,7 @@ fn main() {
 }
 struct App {
     audio_device: AudioDevice,
-    player: Option<Player>,
+    gui_player: Option<GuiPlayer>,
 
     media_path: String,
     stream_size_scale: f32,
@@ -24,7 +25,7 @@ impl Default for App {
             media_path: String::new(),
             stream_size_scale: 1.,
             seek_frac: 0.,
-            player: None,
+            gui_player: None,
         }
     }
 }
@@ -36,12 +37,12 @@ impl eframe::App for App {
             ui.horizontal(|ui| {
                 ui.add_enabled_ui(!self.media_path.is_empty(), |ui| {
                     if ui.button("load").clicked() {
-                        match Player::new(ctx, &self.media_path.replace("\"", "")).and_then(|p| {
+                        match GuiPlayer::new(ctx, &self.media_path.replace("\"", "")).and_then(|p| {
                             p.with_audio(&mut self.audio_device)
                                 .and_then(|p| p.with_subtitles())
                         }) {
                             Ok(player) => {
-                                self.player = Some(player);
+                                self.gui_player = Some(player);
                             }
                             Err(e) => println!("failed to make stream: {e}"),
                         }
@@ -49,7 +50,7 @@ impl eframe::App for App {
                 });
                 ui.add_enabled_ui(!self.media_path.is_empty(), |ui| {
                     if ui.button("clear").clicked() {
-                        self.player = None;
+                        self.gui_player = None;
                     }
                 });
 
@@ -77,45 +78,45 @@ impl eframe::App for App {
                 }
             });
             ui.separator();
-            if let Some(player) = self.player.as_mut() {
+            if let Some(gui_player) = self.gui_player.as_mut() {
                 Window::new("info").show(ctx, |ui| {
                     Grid::new("info_grid").show(ui, |ui| {
                         ui.label("frame rate");
-                        ui.label(player.framerate.to_string());
+                        ui.label(gui_player.player.framerate.to_string());
                         ui.end_row();
 
                         ui.label("size");
-                        ui.label(format!("{}x{}", player.size.x, player.size.y));
+                        ui.label(format!("{}x{}", gui_player.player.size.x, gui_player.player.size.y));
                         ui.end_row();
 
                         ui.label("elapsed / duration");
-                        ui.label(player.duration_text());
+                        ui.label(gui_player.duration_text());
                         ui.end_row();
 
                         ui.label("state");
-                        ui.label(format!("{:?}", player.player_state.get()));
+                        ui.label(format!("{:?}", gui_player.player.player_state.get()));
                         ui.end_row();
 
                         ui.label("has audio?");
-                        ui.label(player.audio_streamer.is_some().to_string());
+                        ui.label(gui_player.player.audio_streamer.is_some().to_string());
                         ui.end_row();
 
                         ui.label("has subtitles?");
-                        ui.label(player.subtitle_streamer.is_some().to_string());
+                        ui.label(gui_player.player.subtitle_streamer.is_some().to_string());
                         ui.end_row();
                     });
                 });
                 Window::new("controls").show(ctx, |ui| {
                     ui.horizontal(|ui| {
                         if ui.button("seek to:").clicked() {
-                            player.seek(self.seek_frac);
+                            gui_player.seek(self.seek_frac);
                         }
                         ui.add(
                             DragValue::new(&mut self.seek_frac)
                                 .speed(0.05)
                                 .range(0.0..=1.0),
                         );
-                        ui.checkbox(&mut player.options.looping, "loop");
+                        ui.checkbox(&mut gui_player.player.options.looping, "loop");
                     });
                     ui.horizontal(|ui| {
                         ui.label("size scale");
@@ -124,34 +125,34 @@ impl eframe::App for App {
                     ui.separator();
                     ui.horizontal(|ui| {
                         if ui.button("play").clicked() {
-                            player.start()
+                            gui_player.start()
                         }
                         if ui.button("unpause").clicked() {
-                            player.resume();
+                            gui_player.resume();
                         }
                         if ui.button("pause").clicked() {
-                            player.pause();
+                            gui_player.pause();
                         }
                         if ui.button("stop").clicked() {
-                            player.stop();
+                            gui_player.stop();
                         }
                     });
                     ui.horizontal(|ui| {
                         ui.label("volume");
-                        let mut volume = player.options.audio_volume.get();
+                        let mut volume = gui_player.player.options.audio_volume.get();
                         if ui
                             .add(Slider::new(
                                 &mut volume,
-                                0.0..=player.options.max_audio_volume,
+                                0.0..=gui_player.player.options.max_audio_volume,
                             ))
                             .changed()
                         {
-                            player.options.audio_volume.set(volume);
+                            gui_player.player.options.audio_volume.set(volume);
                         };
                     });
                 });
 
-                player.ui(ui, player.size * self.stream_size_scale);
+                gui_player.ui(ui, gui_player.player.size * self.stream_size_scale);
             }
         });
     }

@@ -1,14 +1,21 @@
-# egui-video, a video playing library for [`egui`](https://github.com/emilk/egui)
-[![crates.io](https://img.shields.io/crates/v/egui-video)](https://crates.io/crates/egui-video)
-[![docs](https://docs.rs/egui-video/badge.svg)](https://docs.rs/egui-video/latest/egui_video/)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/n00kii/egui-video/blob/main/README.md)
+# egui-video-headless, a video playing library for [`egui`](https://github.com/emilk/egui) or for `headless streaming`
+
+[//]: # ([![crates.io]&#40;https://img.shields.io/crates/v/egui-video&#41;]&#40;https://crates.io/crates/egui-video&#41;)
+
+[//]: # ([![docs]&#40;https://docs.rs/egui-video/badge.svg&#41;]&#40;https://docs.rs/egui-video/latest/egui_video/&#41;)
+
+[//]: # ([![license]&#40;https://img.shields.io/badge/license-MIT-blue.svg&#41;]&#40;https://github.com/n00kii/egui-video/blob/main/README.md&#41;)
+
+_This is a fork from original https://github.com/n00kii/egui-video_
 
 https://github.com/n00kii/egui-video/assets/57325298/c618ff0a-9ad2-4cf0-b14a-dda65dc54b23
 
-plays videos in egui from file path or from bytes
+- Plays videos in egui from file path or from bytes
+- Can be used to extract video frames from file or bytes
 
 ## Dependencies:
- - requires ffmpeg 6 or 7. follow the build instructions [here](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)
+
+- requires ffmpeg 7. follow the build instructions [here](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)
 
 ## Usage:
 ```rust
