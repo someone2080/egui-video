@@ -11,7 +11,8 @@ use crate::subtitle::Subtitle;
 use timer::{Guard, Timer};
 use std::sync::mpsc;
 use egui::{ColorImage, Vec2};
-use crate::{get_decoder_from_stream_index, get_stream_indices_of_type, is_ffmpeg_eof_error, timestamp_to_millisec, AsFfmpegSample, AudioDevice, AudioSampleStream, AudioStreamer, PlayerMessage, PlayerMessageReciever, PlayerMessageSender, PlayerState, Shared, StreamIndex, StreamInfo, Streamer, StreamingAudioChunks, SubtitleQueue, SubtitleStreamer, VideoStreamer, AV_TIME_BASE_RATIONAL};
+use ffmpeg::util::frame::video::Video;
+use crate::{get_decoder_from_stream_index, get_stream_indices_of_type, is_ffmpeg_eof_error, timestamp_to_millisec, video_frame_to_image, AsFfmpegSample, AudioDevice, AudioSampleStream, AudioStreamer, PlayerMessage, PlayerMessageReciever, PlayerMessageSender, PlayerState, Shared, StreamIndex, StreamInfo, Streamer, StreamingAudioChunks, SubtitleQueue, SubtitleStreamer, VideoStreamer, AV_TIME_BASE_RATIONAL};
 
 /// Configurable aspects of a [`crate::Player`].
 #[derive(Clone, Debug)]
@@ -34,7 +35,7 @@ impl Default for PlayerOptions {
     }
 }
 
-pub type OnNewFrame = Box<dyn Fn(ColorImage) + Send + Sync>;
+pub type OnNewFrame = Box<dyn Fn(Video) + Send + Sync>;
 
 impl PlayerOptions {
     /// Set the maximum player volume, and scale the actual player volume to the
@@ -125,6 +126,21 @@ impl Player {
         let size = Vec2::new(width as f32, height as f32);
         let duration_ms = timestamp_to_millisec(input_context.duration(), AV_TIME_BASE_RATIONAL); // in sec
 
+        // TODO: temp solution; limit output to HD, 4k has very bad performance
+        let (to_width, to_height) = (1920, 1080);
+        let aspect = width as f32 / height as f32;
+        let b_aspect = to_width as f32 / to_height as f32;
+
+        let output_frame_width: u32;
+        let output_frame_height: u32;
+        if aspect > b_aspect {
+            output_frame_width = to_width;
+            output_frame_height = (to_width as f32 / aspect).round() as u32;
+        } else {
+            output_frame_height = to_height;
+            output_frame_width = (to_height as f32 * aspect).round() as u32;
+        }
+
         let stream_decoder = VideoStreamer {
             apply_video_frame_fn: None,
             duration_ms,
@@ -134,6 +150,9 @@ impl Player {
             video_elapsed_ms: video_elapsed_ms.clone(),
             input_context,
             player_state: player_state.clone(),
+
+            output_frame_width,
+            output_frame_height,
         };
 
         let options = PlayerOptions::default();
@@ -451,7 +470,7 @@ impl Player {
     pub fn get_thumbnail(&mut self) -> ColorImage {
         loop {
             if let Ok(thumbnail) = self.video_streamer.lock().receive_next_packet_until_frame() {
-                return thumbnail;
+                return video_frame_to_image(thumbnail);
             }
         }
     }

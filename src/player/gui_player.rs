@@ -5,7 +5,7 @@ use egui::{vec2, Align2, Color32, ColorImage, CornerRadius, FontId, Image, Pos2,
 use egui::emath::RectTransform;
 use egui::load::SizedTexture;
 use ffmpeg::media::Type;
-use crate::{format_duration, AudioDevice, PlayerState};
+use crate::{format_duration, video_frame_to_image, AudioDevice, PlayerState};
 use crate::player::player::Player;
 use crate::subtitle::Subtitle;
 
@@ -36,7 +36,7 @@ impl GuiPlayer {
         let c_texture_handle = texture_handle.clone();
         let c_ctx = ctx.clone();
         let player = player.set_on_new_frame(Box::new(move |frame| {
-            c_texture_handle.lock().unwrap().set(frame, *c_texture_options);
+            c_texture_handle.lock().unwrap().set(video_frame_to_image(frame), *c_texture_options);
             c_ctx.request_repaint();
         }));
 

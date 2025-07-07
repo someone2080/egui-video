@@ -129,7 +129,7 @@ enum PlayerMessage {
 type PlayerMessageSender = std::sync::mpsc::Sender<PlayerMessage>;
 type PlayerMessageReciever = std::sync::mpsc::Receiver<PlayerMessage>;
 
-type ApplyVideoFrameFn = Box<dyn FnMut(ColorImage) + Send>;
+type ApplyVideoFrameFn = Box<dyn FnMut(Video) + Send>;
 type SubtitleQueue = Arc<Mutex<VecDeque<Subtitle>>>;
 
 type StreamingAudioChunks = Vec<f32>;
@@ -166,6 +166,9 @@ pub struct VideoStreamer {
     video_elapsed_ms: Shared<i64>,
     _audio_elapsed_ms: Shared<i64>,
     apply_video_frame_fn: Option<ApplyVideoFrameFn>,
+
+    output_frame_width: u32,
+    output_frame_height: u32,
 }
 
 /// Streams audio.
@@ -460,7 +463,7 @@ pub trait Streamer: Send {
 
 impl Streamer for VideoStreamer {
     type Frame = Video;
-    type ProcessedFrame = ColorImage;
+    type ProcessedFrame = Video;
     fn stream_type(&self) -> Type {
         Type::Video
     }
@@ -508,14 +511,13 @@ impl Streamer for VideoStreamer {
             frame.width(),
             frame.height(),
             Pixel::RGBA,
-            frame.width(),
-            frame.height(),
+            self.output_frame_width,
+            self.output_frame_height,
             Flags::BILINEAR,
         )?;
         scaler.run(&frame, &mut rgb_frame)?;
 
-        let image = video_frame_to_image(rgb_frame);
-        Ok(image)
+        Ok(rgb_frame)
     }
 }
 
@@ -822,7 +824,7 @@ fn is_ffmpeg_incomplete_error(error: &anyhow::Error) -> bool {
     )
 }
 
-fn video_frame_to_image(frame: Video) -> ColorImage {
+pub fn video_frame_to_image(frame: Video) -> ColorImage {
     let size = [frame.width() as usize, frame.height() as usize];
     let data = frame.data(0);
     let stride = frame.stride(0);
